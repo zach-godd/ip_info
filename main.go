@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -283,4 +284,21 @@ func processURLs(urls []string, concurrency int, timeout time.Duration) []DNSDat
 
 	wg.Wait()
 	return results
+}
+
+func getDMARCData(domain string) (string, error) {
+	dmarcDomain := "_dmarc." + domain
+
+	txtRecords, err := net.DefaultResolver.LookupTXT(context.Background(), dmarcDomain)
+	if err != nil {
+		fmt.Printf("Failed to look up DMARC record: %v\n", err)
+		return "", err
+	}
+
+	for _, record := range txtRecords {
+		if strings.HasPrefix(record, "v=DMARC1") {
+			return record, nil
+		}
+	}
+	return "", errors.New("no DMARC records found")
 }
