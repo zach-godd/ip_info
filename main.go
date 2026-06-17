@@ -23,17 +23,19 @@ import (
 
 // DNSData holds all DNS information for a domain
 type DNSData struct {
-	URL        string     `json:"url"`
-	Domain     string     `json:"domain"`
-	MXRecords  []MXRecord `json:"mx_records,omitempty"`
-	MXErr      string     `json:"mx_record_error,omitempty"`
-	MxARecords []string   `json:"mx_a_records,omitempty"`
-	SPFRecord  string     `json:"spf_record,omitempty"`
-	MXASN      string     `json:"mxasn,omitempty"`
-	ASNOrg     string     `json:"asn_org,omitempty"`
-	ARecordErr string     `json:"a_record_error,omitempty"`
-	Timestamp  string     `json:"timestamp"`
-	Error      string     `json:"error,omitempty"`
+	URL         string     `json:"url"`
+	Domain      string     `json:"domain"`
+	MXRecords   []MXRecord `json:"mx_records,omitempty"`
+	MXErr       string     `json:"mx_record_error,omitempty"`
+	MxARecords  []string   `json:"mx_a_records,omitempty"`
+	SPFRecord   string     `json:"spf_record,omitempty"`
+	DMARCRecord string     `json:"dmarc_records,omitempty"`
+	DMARCErr    string     `json:"dmarc_record_error,omitempty"`
+	MXASN       string     `json:"mxasn,omitempty"`
+	ASNOrg      string     `json:"asn_org,omitempty"`
+	ARecordErr  string     `json:"a_record_error,omitempty"`
+	Timestamp   string     `json:"timestamp"`
+	Error       string     `json:"error,omitempty"`
 }
 
 // MXRecord represents an MX record
@@ -42,6 +44,7 @@ type MXRecord struct {
 	Priority uint16 `json:"priority"`
 }
 
+// TODO: Break into testable function calls
 func main() {
 	var (
 		input       = flag.String("input", "example.txt", "Path to input file containing one domain/URL per line")
@@ -72,6 +75,15 @@ func main() {
 
 	// Process URLs
 	results := processURLs(urls, *concurrency, *timeout)
+
+	// add dmarc data
+	for _, result := range results {
+		data, err := getDMARCData(result.Domain)
+		if err != nil {
+			result.DMARCErr = err.Error()
+		}
+		result.DMARCRecord = data
+	}
 
 	// Convert to JSON
 	jsonData, err := json.MarshalIndent(results, "", "  ")
