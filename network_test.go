@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -40,6 +41,31 @@ func (t *TestSuite) TestGetDMARC() {
 			}
 
 			t.Assert().Equal(test.expectedResult, result)
+		})
+	}
+}
+
+func (t *TestSuite) TestGetASN() {
+	tests := map[string]struct {
+		domain      string
+		expectedASN string
+		expectedOrg string
+	}{
+		"valid": {
+			domain:      "google.com",
+			expectedASN: "AS15169 Google LLC",
+			expectedOrg: "Google LLC",
+		},
+		"invalid domain": {
+			domain: "thisdomaintotallydoesnotexist.com",
+		},
+	}
+
+	for label, test := range tests {
+		t.Run(label, func() {
+			asn, org := getASN(context.Background(), test.domain)
+			t.Assert().Equal(test.expectedASN, asn)
+			t.Assert().Equal(test.expectedOrg, org)
 		})
 	}
 }
