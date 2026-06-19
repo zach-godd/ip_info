@@ -92,6 +92,7 @@ func getDMARCData(domain string) (string, error) {
 }
 
 // getASN retrieves the ASN information for an IP address using ip-api.com
+// TODO(ZSG) - add an error return
 func getASN(ctx context.Context, ipAddress string) (string, string) {
 	urlStr := fmt.Sprintf("http://ip-api.com/json/%s?fields=as,org", ipAddress)
 
