@@ -27,8 +27,8 @@ type DNSData struct {
 	SPFRecord   string     `json:"spf_record,omitempty"`
 	DMARCRecord string     `json:"dmarc_records,omitempty"`
 	DMARCErr    string     `json:"dmarc_record_error,omitempty"`
-	MXASN       string     `json:"mxasn,omitempty"`
-	ASNOrg      string     `json:"asn_org,omitempty"`
+	MXASN       ASNInfo    `json:"mxasn,omitempty"`
+	ASNErr      string     `json:"asn_err,omitempty"`
 	ARecordErr  string     `json:"a_record_error,omitempty"`
 	Timestamp   string     `json:"timestamp"`
 	Error       string     `json:"error,omitempty"`

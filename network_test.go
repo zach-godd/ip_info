@@ -63,9 +63,9 @@ func (t *TestSuite) TestGetASN() {
 
 	for label, test := range tests {
 		t.Run(label, func() {
-			asn, org := getASN(context.Background(), test.domain)
-			t.Assert().Equal(test.expectedASN, asn)
-			t.Assert().Equal(test.expectedOrg, org)
+			asn, _ := getASN(context.Background(), test.domain)
+			t.Assert().Equal(test.expectedASN, asn.ASN)
+			t.Assert().Equal(test.expectedOrg, asn.Organization)
 		})
 	}
 }
