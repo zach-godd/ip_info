@@ -12,7 +12,15 @@ import (
 	"time"
 )
 
-// TODO (ZSG) - Add tests for getASN and getDNS
+var badStatus error = errors.New("non-200 status code")
+
+// TODO (ZSG) - Add tests for getDNS
+// TODO (ZSG) - Add mocks for more robust testing
+
+type ASNInfo struct {
+	ASN          string `json:"asn"`
+	Organization string `json:"organization"`
+}
 
 // getDNSData retrieves all DNS data for a domain
 func getDNSData(ctx context.Context, originalURL string, domain string) DNSData {
@@ -51,9 +59,12 @@ func getDNSData(ctx context.Context, originalURL string, domain string) DNSData 
 		} else {
 			data.MxARecords = addresses
 			if len(addresses) > 0 {
-				asn, org := getASN(ctx, addresses[0])
-				data.MXASN = asn
-				data.ASNOrg = org
+				asn, err := getASN(ctx, addresses[0])
+				if err != nil {
+					data.ASNErr = err.Error()
+				} else {
+					data.MXASN = *asn
+				}
 			}
 		}
 	}
@@ -92,46 +103,44 @@ func getDMARCData(domain string) (string, error) {
 }
 
 // getASN retrieves the ASN information for an IP address using ip-api.com
-// TODO(ZSG) - add an error return
-func getASN(ctx context.Context, ipAddress string) (string, string) {
+func getASN(ctx context.Context, ipAddress string) (*ASNInfo, error) {
 	urlStr := fmt.Sprintf("http://ip-api.com/json/%s?fields=as,org", ipAddress)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 	if err != nil {
-		return "", ""
+		return nil, err
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", ""
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", ""
+		return nil, badStatus
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", ""
+		return nil, err
 	}
 
 	var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return "", ""
+		return nil, err
 	}
 
-	asn := ""
-	org := ""
+	var asnInfo ASNInfo
 
 	if as, ok := result["as"].(string); ok {
-		asn = as
+		asnInfo.ASN = as
 	}
 	if organization, ok := result["org"].(string); ok {
-		org = organization
+		asnInfo.Organization = organization
 	}
 
-	return asn, org
+	return &asnInfo, nil
 }
