@@ -12,7 +12,8 @@ import (
 	"time"
 )
 
-var badStatus error = errors.New("non-200 status code")
+var badStatus = errors.New("non-200 status code")
+var notFoundErr = errors.New("not found")
 
 // TODO (ZSG) - Add tests for getDNS
 // TODO (ZSG) - Add mocks for more robust testing
@@ -30,7 +31,6 @@ func getDNSData(ctx context.Context, originalURL string, domain string) DNSData 
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	// Create a resolver
 	resolver := &net.Resolver{PreferGo: false}
 
 	// Get MX records
@@ -49,36 +49,17 @@ func getDNSData(ctx context.Context, originalURL string, domain string) DNSData 
 	}
 
 	// Resolve first MX host to A records and, if available, get ASN for the first IP.
-	if len(mxRecords) > 0 {
-		firstMXHost := strings.TrimSuffix(mxRecords[0].Host, ".")
-		addresses, err := resolver.LookupHost(ctx, firstMXHost)
+	data.MxARecords, data.ARecordErr = getARecords(ctx, mxRecords)
+	if data.MxARecords != nil && len(data.MxARecords) > 0 {
+		asn, err := getASN(ctx, data.MxARecords[0])
 		if err != nil {
-			if data.ARecordErr == "" {
-				data.ARecordErr = fmt.Sprintf("A record lookup failed: %v", err)
-			}
-		} else {
-			data.MxARecords = addresses
-			if len(addresses) > 0 {
-				asn, err := getASN(ctx, addresses[0])
-				if err != nil {
-					data.ASNErr = err.Error()
-				} else {
-					data.MXASN = *asn
-				}
-			}
+			data.ARecordErr = err
 		}
+		data.MXASN = asn
 	}
 
 	// Get SPF records
-	txtRecords, err := resolver.LookupTXT(ctx, domain)
-	if err == nil {
-		for _, txt := range txtRecords {
-			if strings.HasPrefix(txt, "v=spf1") {
-				data.SPFRecord = txt
-				break
-			}
-		}
-	}
+	data.SPFRecord, data.SPFErr = getSPFRecords(ctx, data.MxARecords[0])
 
 	return data
 }
@@ -103,38 +84,37 @@ func getDMARCData(domain string) (string, error) {
 }
 
 // getASN retrieves the ASN information for an IP address using ip-api.com
-func getASN(ctx context.Context, ipAddress string) (*ASNInfo, error) {
+func getASN(ctx context.Context, ipAddress string) (ASNInfo, error) {
 	urlStr := fmt.Sprintf("http://ip-api.com/json/%s?fields=as,org", ipAddress)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 	if err != nil {
-		return nil, err
+		return ASNInfo{}, err
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return ASNInfo{}, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, badStatus
+		return ASNInfo{}, badStatus
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return ASNInfo{}, err
 	}
 
 	var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return nil, err
+		return ASNInfo{}, err
 	}
 
 	var asnInfo ASNInfo
-
 	if as, ok := result["as"].(string); ok {
 		asnInfo.ASN = as
 	}
@@ -142,5 +122,29 @@ func getASN(ctx context.Context, ipAddress string) (*ASNInfo, error) {
 		asnInfo.Organization = organization
 	}
 
-	return &asnInfo, nil
+	return asnInfo, nil
+}
+
+func getSPFRecords(ctx context.Context, domain string) (string, error) {
+	resolver := &net.Resolver{PreferGo: false}
+	txtRecords, err := resolver.LookupTXT(ctx, domain)
+	if err == nil {
+		for _, txt := range txtRecords {
+			if strings.HasPrefix(txt, "v=spf1") {
+				return txt, nil
+			}
+		}
+	}
+	return "", notFoundErr
+}
+
+func getARecords(ctx context.Context, mxRecords []*net.MX) ([]string, error) {
+	resolver := &net.Resolver{PreferGo: false}
+	firstMXHost := strings.TrimSuffix(mxRecords[0].Host, ".")
+	addresses, err := resolver.LookupHost(ctx, firstMXHost)
+	if err != nil {
+		return nil, err
+	}
+
+	return addresses, nil
 }
