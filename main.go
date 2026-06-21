@@ -25,11 +25,12 @@ type DNSData struct {
 	MXErr       string     `json:"mx_record_error,omitempty"`
 	MxARecords  []string   `json:"mx_a_records,omitempty"`
 	SPFRecord   string     `json:"spf_record,omitempty"`
+	SPFErr      error      `json:"spf_record_error,omitempty"`
 	DMARCRecord string     `json:"dmarc_records,omitempty"`
 	DMARCErr    string     `json:"dmarc_record_error,omitempty"`
 	MXASN       ASNInfo    `json:"mxasn,omitempty"`
 	ASNErr      string     `json:"asn_err,omitempty"`
-	ARecordErr  string     `json:"a_record_error,omitempty"`
+	ARecordErr  error      `json:"a_record_error,omitempty"`
 	Timestamp   string     `json:"timestamp"`
 	Error       string     `json:"error,omitempty"`
 }
