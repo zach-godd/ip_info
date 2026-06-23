@@ -22,17 +22,17 @@ type DNSData struct {
 	URL         string     `json:"url"`
 	Domain      string     `json:"domain"`
 	MXRecords   []MXRecord `json:"mx_records,omitempty"`
-	MXErr       string     `json:"mx_record_error,omitempty"`
+	MXErr       error      `json:"mx_record_error,omitempty"`
 	MxARecords  []string   `json:"mx_a_records,omitempty"`
 	SPFRecord   string     `json:"spf_record,omitempty"`
 	SPFErr      error      `json:"spf_record_error,omitempty"`
 	DMARCRecord string     `json:"dmarc_records,omitempty"`
-	DMARCErr    string     `json:"dmarc_record_error,omitempty"`
+	DMARCErr    error      `json:"dmarc_record_error,omitempty"`
 	MXASN       ASNInfo    `json:"mxasn,omitempty"`
-	ASNErr      string     `json:"asn_err,omitempty"`
+	ASNErr      error      `json:"asn_err,omitempty"`
 	ARecordErr  error      `json:"a_record_error,omitempty"`
 	Timestamp   string     `json:"timestamp"`
-	Error       string     `json:"error,omitempty"`
+	Error       error      `json:"error,omitempty"`
 }
 
 // MXRecord represents an MX record
@@ -77,7 +77,7 @@ func main() {
 	for _, result := range results {
 		data, err := getDMARCData(result.Domain)
 		if err != nil {
-			result.DMARCErr = err.Error()
+			result.DMARCErr = err
 		}
 		result.DMARCRecord = data
 	}
@@ -170,7 +170,7 @@ func processURLs(urls []string, concurrency int, timeout time.Duration) []DNSDat
 				mu.Lock()
 				results = append(results, DNSData{
 					URL:       originalURL,
-					Error:     err.Error(),
+					Error:     err,
 					Timestamp: time.Now().UTC().Format(time.RFC3339),
 				})
 				mu.Unlock()

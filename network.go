@@ -37,7 +37,7 @@ func getDNSData(ctx context.Context, originalURL string, domain string) DNSData 
 	mxRecords, err := resolver.LookupMX(ctx, domain)
 	if err != nil {
 		if !strings.Contains(err.Error(), "no such host") {
-			data.MXErr = fmt.Sprintf("MX lookup failed: %v", err)
+			data.MXErr = err
 		}
 	} else {
 		for _, mx := range mxRecords {
