@@ -41,6 +41,19 @@ type MXRecord struct {
 	Priority uint16 `json:"priority"`
 }
 
+// runLookup processes URLs and enriches each result with DMARC data.
+func runLookup(urls []string, concurrency int, timeout time.Duration) []DNSData {
+	results := processURLs(urls, concurrency, timeout)
+	for i, result := range results {
+		data, err := getDMARCData(result.Domain)
+		if err != nil {
+			results[i].DMARCErr = err
+		}
+		results[i].DMARCRecord = data
+	}
+	return results
+}
+
 // TODO: Break into testable function calls
 func main() {
 	var (
@@ -48,9 +61,19 @@ func main() {
 		output      = flag.String("output", "", "Output file for JSON results (default: stdout)")
 		concurrency = flag.Int("concurrency", 5, "Number of concurrent DNS lookups")
 		timeout     = flag.Duration("timeout", 10*time.Second, "Timeout for each DNS lookup")
+		addr        = flag.String("addr", "", "Address to listen on for HTTP API (e.g. :8080); when set, file-based mode is skipped")
 	)
 
 	flag.Parse()
+
+	if *addr != "" {
+		fmt.Fprintf(os.Stderr, "Starting HTTP server on %s\n", *addr)
+		if err := startServer(*addr, *concurrency, *timeout); err != nil {
+			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if input == nil {
 		fmt.Fprint(os.Stderr, "Error: -input is required\n")
@@ -70,26 +93,14 @@ func main() {
 
 	fmt.Fprintf(os.Stderr, "Processing %d URLs with %d concurrent workers, timeout: %v\n", len(urls), *concurrency, *timeout)
 
-	// Process URLs
-	results := processURLs(urls, *concurrency, *timeout)
+	results := runLookup(urls, *concurrency, *timeout)
 
-	// add dmarc data
-	for _, result := range results {
-		data, err := getDMARCData(result.Domain)
-		if err != nil {
-			result.DMARCErr = err
-		}
-		result.DMARCRecord = data
-	}
-
-	// Convert to JSON
 	jsonData, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Output results
 	if *output != "" {
 		err = os.WriteFile(*output, jsonData, 0644)
 		if err != nil {

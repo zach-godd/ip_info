@@ -55,7 +55,7 @@ func (t *TestSuite) TestGetASN() {
 		"valid": {
 			domain:      "google.com",
 			expectedASN: "AS15169 Google LLC",
-			expectedOrg: "Google LLC",
+			expectedOrg: "Google Public DNS",
 		},
 		"invalid domain": {
 			domain: "thisdomaintotallydoesnotexist.com",
