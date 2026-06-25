@@ -1,4 +1,4 @@
-package main
+package network
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"main.go/types"
 )
 
 var badStatus = errors.New("non-200 status code")
@@ -18,14 +20,9 @@ var notFoundErr = errors.New("not found")
 // TODO (ZSG) - Add tests for getDNS
 // TODO (ZSG) - Add mocks for more robust testing
 
-type ASNInfo struct {
-	ASN          string `json:"asn"`
-	Organization string `json:"organization"`
-}
-
-// getDNSData retrieves all DNS data for a domain
-func getDNSData(ctx context.Context, originalURL string, domain string) DNSData {
-	data := DNSData{
+// GetDNSData retrieves all DNS data for a domain
+func GetDNSData(ctx context.Context, originalURL string, domain string) types.DNSData {
+	data := types.DNSData{
 		URL:       originalURL,
 		Domain:    domain,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
@@ -41,7 +38,7 @@ func getDNSData(ctx context.Context, originalURL string, domain string) DNSData 
 		}
 	} else {
 		for _, mx := range mxRecords {
-			data.MXRecords = append(data.MXRecords, MXRecord{
+			data.MXRecords = append(data.MXRecords, types.MXRecord{
 				Host:     strings.TrimSuffix(mx.Host, "."),
 				Priority: mx.Pref,
 			})
@@ -64,8 +61,8 @@ func getDNSData(ctx context.Context, originalURL string, domain string) DNSData 
 	return data
 }
 
-// getDMARCData gets dmarc data about a domain using a LookupTXT call
-func getDMARCData(domain string) (string, error) {
+// GetDMARCData gets dmarc data about a domain using a LookupTXT call
+func GetDMARCData(domain string) (string, error) {
 	dmarcDomain := "_dmarc." + domain
 
 	r := net.Resolver{PreferGo: false}
@@ -84,37 +81,37 @@ func getDMARCData(domain string) (string, error) {
 }
 
 // getASN retrieves the ASN information for an IP address using ip-api.com
-func getASN(ctx context.Context, ipAddress string) (ASNInfo, error) {
+func getASN(ctx context.Context, ipAddress string) (types.ASNInfo, error) {
 	urlStr := fmt.Sprintf("http://ip-api.com/json/%s?fields=as,org", ipAddress)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 	if err != nil {
-		return ASNInfo{}, err
+		return types.ASNInfo{}, err
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return ASNInfo{}, err
+		return types.ASNInfo{}, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return ASNInfo{}, badStatus
+		return types.ASNInfo{}, badStatus
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ASNInfo{}, err
+		return types.ASNInfo{}, err
 	}
 
 	var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return ASNInfo{}, err
+		return types.ASNInfo{}, err
 	}
 
-	var asnInfo ASNInfo
+	var asnInfo types.ASNInfo
 	if as, ok := result["as"].(string); ok {
 		asnInfo.ASN = as
 	}

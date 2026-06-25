@@ -1,4 +1,4 @@
-package main
+package network
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/suite"
+	"main.go"
 )
 
 type NetworkTestSuite struct {
@@ -17,7 +18,7 @@ func TestNetworkTestSuite(t *testing.T) {
 	suite.Run(t, new(NetworkTestSuite))
 }
 
-func (t *TestSuite) TestGetDMARC() {
+func (t *main.TestSuite) TestGetDMARC() {
 	tests := map[string]struct {
 		domain         string
 		expectedResult string
@@ -46,7 +47,7 @@ func (t *TestSuite) TestGetDMARC() {
 	}
 }
 
-func (t *TestSuite) TestGetASN() {
+func (t *main.TestSuite) TestGetASN() {
 	tests := map[string]struct {
 		domain      string
 		expectedASN string
@@ -71,7 +72,7 @@ func (t *TestSuite) TestGetASN() {
 	}
 }
 
-func (t *TestSuite) TestGetSPF() {
+func (t *main.TestSuite) TestGetSPF() {
 	tests := map[string]struct {
 		domain      string
 		spfRecord   string
@@ -99,7 +100,7 @@ func (t *TestSuite) TestGetSPF() {
 	}
 }
 
-func (t *TestSuite) TestGetARecord() {
+func (t *main.TestSuite) TestGetARecord() {
 	tests := map[string]struct {
 		domain      string
 		ARecords    []string
