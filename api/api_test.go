@@ -1,14 +1,25 @@
-package main
+package api
 
 import (
 	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"testing"
 	"time"
+
+	"github.com/stretchr/testify/suite"
 )
 
-func (t *TestSuite) TestHandleLookup() {
+type APITestSuite struct {
+	suite.Suite
+}
+
+func APITestSuitRun(t *testing.T) {
+	suite.Run(t, new(APITestSuite))
+}
+
+func (t *APITestSuite) TestHandleLookup() {
 	handler := handleLookup(5, 10*time.Second)
 
 	tests := map[string]struct {
@@ -54,6 +65,26 @@ func (t *TestSuite) TestHandleLookup() {
 				t.Require().NoError(json.NewDecoder(w.Body).Decode(&results))
 				t.Assert().Len(results, tc.wantCount)
 			}
+		})
+	}
+}
+
+func (t *APITestSuite) TestExtractDomain() {
+	tests := map[string]struct {
+		url            string
+		expectedDomain string
+	}{
+		"valid": {
+			url:            "http://example.com",
+			expectedDomain: "example.com",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func() {
+			domain, err := extractDomain(test.url)
+			t.Require().NoError(err)
+			t.Assert().Equal(test.expectedDomain, domain)
 		})
 	}
 }
