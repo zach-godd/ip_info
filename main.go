@@ -19,7 +19,8 @@ func main() {
 	flag.Parse()
 
 	fmt.Fprintf(os.Stderr, "Starting HTTP server on %s\n", *addr)
-	if err := api.StartServer(*addr, *concurrency, *timeout); err != nil {
+	apiServer := api.NewAPI()
+	if err := apiServer.StartServer(*addr, *concurrency, *timeout); err != nil {
 		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 		os.Exit(1)
 	}

@@ -13,6 +13,11 @@ import (
 
 type APITestSuite struct {
 	suite.Suite
+	api API
+}
+
+func (t *APITestSuite) SetupTest() {
+	t.api = NewAPI()
 }
 
 func APITestSuitRun(t *testing.T) {
@@ -20,7 +25,7 @@ func APITestSuitRun(t *testing.T) {
 }
 
 func (t *APITestSuite) TestHandleLookup() {
-	handler := handleLookup(5, 10*time.Second)
+	handler := t.api.handleLookup(5, 10*time.Second)
 
 	tests := map[string]struct {
 		method     string
