@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,7 +20,22 @@ type LookupRequest struct {
 	URLs []string `json:"urls"`
 }
 
-func handleLookup(concurrency int, timeout time.Duration) http.HandlerFunc {
+type DNSClient interface {
+	GetDMARCData(string) (string, error)
+	GetDNSData(context.Context, string, string) types.DNSData
+}
+
+type API struct {
+	dnsClient DNSClient
+}
+
+func NewAPI() API {
+	return API{
+		dnsClient: new(network.NewDataRetriever(&net.Resolver{PreferGo: false})),
+	}
+}
+
+func (a *API) handleLookup(concurrency int, timeout time.Duration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -36,40 +52,21 @@ func handleLookup(concurrency int, timeout time.Duration) http.HandlerFunc {
 			return
 		}
 
-		results := runLookup(req.URLs, concurrency, timeout)
+		results := a.runLookup(req.URLs, concurrency, timeout)
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(results)
 	}
 }
 
-func StartServer(addr string, concurrency int, timeout time.Duration) error {
+func (a *API) StartServer(addr string, concurrency int, timeout time.Duration) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/lookup", handleLookup(concurrency, timeout))
+	mux.HandleFunc("/lookup", a.handleLookup(concurrency, timeout))
 	return http.ListenAndServe(addr, mux)
 }
 
-// extractDomain extracts the domain from a URL
-func extractDomain(urlStr string) (string, error) {
-	if !strings.Contains(urlStr, "://") {
-		urlStr = "http://" + urlStr
-	}
-
-	parsed, err := url.Parse(urlStr)
-	if err != nil {
-		return "", fmt.Errorf("invalid URL: %w", err)
-	}
-
-	host := parsed.Hostname()
-	if host == "" {
-		return "", fmt.Errorf("no hostname found in URL")
-	}
-
-	return host, nil
-}
-
 // processURLs processes a slice of URLs and gathers DNS data for each
-func processURLs(urls []string, concurrency int, timeout time.Duration) []types.DNSData {
+func (a *API) processURLs(urls []string, concurrency int, timeout time.Duration) []types.DNSData {
 	results := make([]types.DNSData, 0, len(urls))
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -99,7 +96,7 @@ func processURLs(urls []string, concurrency int, timeout time.Duration) []types.
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
-			data := network.GetDNSData(ctx, originalURL, domain)
+			data := a.dnsClient.GetDNSData(ctx, originalURL, domain)
 
 			mu.Lock()
 			results = append(results, data)
@@ -112,14 +109,33 @@ func processURLs(urls []string, concurrency int, timeout time.Duration) []types.
 }
 
 // runLookup processes URLs and enriches each result with DMARC data.
-func runLookup(urls []string, concurrency int, timeout time.Duration) []types.DNSData {
-	results := processURLs(urls, concurrency, timeout)
+func (a *API) runLookup(urls []string, concurrency int, timeout time.Duration) []types.DNSData {
+	results := a.processURLs(urls, concurrency, timeout)
 	for i, result := range results {
-		data, err := network.GetDMARCData(result.Domain)
+		data, err := a.dnsClient.GetDMARCData(result.Domain)
 		if err != nil {
 			results[i].DMARCErr = err
 		}
 		results[i].DMARCRecord = data
 	}
 	return results
+}
+
+// extractDomain extracts the domain from a URL
+func extractDomain(urlStr string) (string, error) {
+	if !strings.Contains(urlStr, "://") {
+		urlStr = "http://" + urlStr
+	}
+
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	host := parsed.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("no hostname found in URL")
+	}
+
+	return host, nil
 }

@@ -17,21 +17,29 @@ import (
 var badStatus = errors.New("non-200 status code")
 var notFoundErr = errors.New("not found")
 
-// TODO (ZSG) - Add tests for getDNS
-// TODO (ZSG) - Add mocks for more robust testing
+// TODO (ZSG) - Remove tests at this level;
+// They are integration tests that break easy. Move up to API package and test with mockery
+
+type DataRetriever struct {
+	resolver net.Resolver
+}
+
+func NewDataRetriever(resolver *net.Resolver) DataRetriever {
+	return DataRetriever{
+		resolver: *resolver,
+	}
+}
 
 // GetDNSData retrieves all DNS data for a domain
-func GetDNSData(ctx context.Context, originalURL string, domain string) types.DNSData {
+func (d *DataRetriever) GetDNSData(ctx context.Context, originalURL string, domain string) types.DNSData {
 	data := types.DNSData{
 		URL:       originalURL,
 		Domain:    domain,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	resolver := &net.Resolver{PreferGo: false}
-
 	// Get MX records
-	mxRecords, err := resolver.LookupMX(ctx, domain)
+	mxRecords, err := d.resolver.LookupMX(ctx, domain)
 	if err != nil {
 		if !strings.Contains(err.Error(), "no such host") {
 			data.MXErr = err
@@ -62,7 +70,7 @@ func GetDNSData(ctx context.Context, originalURL string, domain string) types.DN
 }
 
 // GetDMARCData gets dmarc data about a domain using a LookupTXT call
-func GetDMARCData(domain string) (string, error) {
+func (d *DataRetriever) GetDMARCData(domain string) (string, error) {
 	dmarcDomain := "_dmarc." + domain
 
 	r := net.Resolver{PreferGo: false}
