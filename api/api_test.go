@@ -8,7 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+	"main.go/mocks/mockapi"
+	"main.go/types"
 )
 
 type APITestSuite struct {
@@ -20,7 +23,7 @@ func (t *APITestSuite) SetupTest() {
 	t.api = NewAPI()
 }
 
-func APITestSuitRun(t *testing.T) {
+func TestSuitRun(t *testing.T) {
 	suite.Run(t, new(APITestSuite))
 }
 
@@ -57,6 +60,13 @@ func (t *APITestSuite) TestHandleLookup() {
 
 	for name, tc := range tests {
 		t.Run(name, func() {
+			if tc.wantCount == 1 {
+				c := mockapi.NewMockDNSClient(t.T())
+				c.EXPECT().GetDMARCData(mock.Anything).Return("good", nil)
+				c.EXPECT().GetDNSData(mock.Anything, mock.Anything, mock.Anything).Return(types.DNSData{})
+				t.api.dnsClient = c
+			}
+
 			req := httptest.NewRequest(tc.method, "/lookup", bytes.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()

@@ -1,0 +1,10 @@
+template: testify
+packages:
+  main.go/api:
+    config:
+      dir: "mocks/mockapi"
+      pkgname: "mockapi"
+      filename: "mockapi.go"
+      structname: "MockDNSClient"
+    interfaces:
+      DNSClient: {}
